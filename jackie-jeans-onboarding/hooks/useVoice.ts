@@ -1,6 +1,9 @@
+
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+
+type SpeechRecognitionType = any;
 
 interface UseVoiceOptions {
   onResult?: (transcript: string) => void;
@@ -11,59 +14,81 @@ export const useVoice = (options: UseVoiceOptions = {}) => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  const recognitionRef = useRef<SpeechRecognitionType | null>(null);
 
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (typeof window === 'undefined') return;
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       console.warn('Speech Recognition API not supported');
       return;
     }
 
-    recognitionRef.current = new SpeechRecognition();
-    recognitionRef.current.continuous = false;
-    recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = 'en-US';
+    const recognition = new SpeechRecognition();
 
-    recognitionRef.current.onstart = () => {
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
       setIsListening(true);
       setTranscript('');
     };
 
-    recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-      let interimTranscript = '';
+    recognition.onresult = (event: any) => {
+      let finalTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
+        const result = event.results[i];
 
-        if (event.results[i].isFinal) {
-          setTranscript((prev) => prev + transcript);
-          options.onResult?.(transcript);
-        } else {
-          interimTranscript += transcript;
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
         }
+      }
+
+      if (finalTranscript) {
+        setTranscript(finalTranscript);
+        options.onResult?.(finalTranscript);
       }
     };
 
-    recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
-      options.onError?.(event.error);
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event);
+      options.onError?.(event.error || 'Speech recognition failed');
+      setIsListening(false);
     };
 
-    recognitionRef.current.onend = () => {
+    recognition.onend = () => {
       setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      recognition.stop();
     };
   }, [options]);
 
   const speak = useCallback((text: string) => {
+    if (typeof window === 'undefined') return;
+
     if (!('speechSynthesis' in window)) {
       console.warn('Speech Synthesis API not supported');
       return;
     }
 
+    window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
+
     utterance.rate = 1;
     utterance.pitch = 1;
+    utterance.volume = 1;
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
@@ -79,9 +104,7 @@ export const useVoice = (options: UseVoiceOptions = {}) => {
   }, []);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
+    recognitionRef.current?.stop();
   }, []);
 
   const clearTranscript = useCallback(() => {
@@ -98,3 +121,4 @@ export const useVoice = (options: UseVoiceOptions = {}) => {
     clearTranscript,
   };
 };
+

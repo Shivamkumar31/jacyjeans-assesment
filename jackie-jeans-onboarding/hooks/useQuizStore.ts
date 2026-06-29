@@ -27,7 +27,7 @@ const initialState: QuizData = {
   biggestIssue: undefined,
 };
 
-export const useQuizStore = create<QuizStore>(
+export const useQuizStore = create<QuizStore>()(
   persist(
     (set) => ({
       data: initialState,
