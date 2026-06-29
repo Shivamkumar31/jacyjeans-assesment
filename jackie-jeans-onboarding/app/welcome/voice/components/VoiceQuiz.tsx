@@ -76,7 +76,7 @@ export default function VoiceQuiz() {
             result = found;
           } else if (heightNumbers.length >= 2) {
             // Try feet and inches format
-            const tryHeight = `${feet}'${heightNumbers[1]}"`;
+           // const tryHeight = `${feet}'${heightNumbers[1]}"`;
             const foundHeight = HEIGHT_OPTIONS.find(h => h.includes(feet + "'"));
             if (foundHeight) result = foundHeight;
           }
